@@ -1,0 +1,26 @@
+{
+  "bridge": {
+    "name": "Raspberry Pi",
+    "username": "00:00:00:00:00:00", # cat /sys/class/net/wlan0/address
+    "pin": "123-45-678",
+    "manufacturer": "Raspberry Pi Foundation", # optional
+    "model": "Zero W 1.1", # optional; up to you
+    "serialNumber": "0000000044bb145c" # optional; cat /proc/cpuinfo | grep Serial | awk ' {print $3}'
+  },
+  "accessories": [ {
+      "name": "Ceiling Fan",
+      "accessory": "satellite-fan",
+      "address": "00:00:00:00:00:00", # Bluetooth address of the accessory. Non-matching devices are ignored.
+      "device": { # optional
+        "manufacturer": "Harbor Bay", # optional
+        "model": "00000", # optional
+        "serial": "000000000000" # optional
+      },
+      "ble": {
+        "prefix": 42, # Prefix code used for commands sent to the device.
+        "serviceUUID": "00000000-0000-0000-0000-000000000000", # Bluetooth UUID of the service. Capitalization and dashes doesn't matter.
+        "writeCharacteristicUUID": "00000000-0000-0000-0000-000000000000", # Bluetooth UUID of the characteristic. Capitalization and dashes doesn't matter.
+        "notifyCharacteristicUUID": "00000000-0000-0000-0000-000000000000" # Bluetooth UUID of the characteristic. Capitalization and dashes doesn't matter.
+      }
+  } ]
+}

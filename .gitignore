@@ -57,3 +57,5 @@ typings/
 # dotenv environment variables file
 .env
 
+# Work-in-progress personal configurations
+config.json
