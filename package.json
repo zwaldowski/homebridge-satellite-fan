@@ -1,0 +1,27 @@
+{
+  "name": "homebridge-satellite-fan",
+  "description": "Plugin for homebridge that connects to a Satellite Fan control module: https://www.fan-light.com",
+  "author": "Zachary Waldowski <zach@waldowski.me> (https://waldowski.me)",
+  "version": "0.0.0",
+  "license": "MIT",
+  "keywords": [
+    "homebridge-plugin",
+    "bluetooth",
+    "ble",
+    "ceiling-fan"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/zwaldowski/homebridge-satellite-fan.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zwaldowski/homebridge-satellite-fan/issues"
+  },
+  "engines": {
+    "node": ">=4.8.0",
+    "homebridge": ">=0.4.0"
+  },
+  "dependencies": {
+    "noble": ">=1.7.0"
+  }
+}
