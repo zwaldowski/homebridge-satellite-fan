@@ -250,14 +250,14 @@ class FanLightAccessory extends EventEmitter {
   }
 
   onNotify(data, isNotification) {
-    this.log.info('recv: ', data, isNotification)
     if (!isNotification) { return }
     const response = FanResponse.fromPrefixedBuffer(this.manufacturerPrefix, data)
     if (!response) { return }
+    this.log.debug('received fan state')
 
     this.maximumFanLevel = response.maximumFanLevel
     this.fanService.getCharacteristic(Characteristic.On).updateValue(response.fanLevel != 0)
-    this.fanService.getCharacteristic(Characteristic.RotationSpeed).updateValue(Math.floor((response.fanLevel / response.maximumFanLevel) * 100))
+    this.fanService.getCharacteristic(Characteristic.RotationSpeed).updateValue(Math.ceil((response.fanLevel / response.maximumFanLevel) * 100))
     this.lightService.getCharacteristic(Characteristic.On).updateValue(response.lightIsOn)
     this.lightService.getCharacteristic(Characteristic.Brightness).updateValue(response.lightBrightness)
 
@@ -322,7 +322,7 @@ class FanLightAccessory extends EventEmitter {
   }
 
   setFanRotationSpeed(newValue, callback) {
-    const level = Math.floor(newValue * (this.maximumFanLevel / 100))
+    const level = Math.ceil(newValue * (this.maximumFanLevel / 100))
     this.log.info('Fan speed: ' + level)
     this.fanService.getCharacteristic(Characteristic.RotationSpeed).updateValue(newValue)
 
