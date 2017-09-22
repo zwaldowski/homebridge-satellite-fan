@@ -223,6 +223,8 @@ class FanLightAccessory extends EventEmitter {
     this.notifyCharacteristic.subscribe(function (error) {
       if (error) {
         this.log.warn("Subscribe to notify characteristic failed")
+      } else {
+        this.log.debug("Subscribed")
       }
     }.bind(this));
   }
@@ -248,6 +250,7 @@ class FanLightAccessory extends EventEmitter {
   }
 
   onNotify(data, isNotification) {
+    this.log.info('recv: ', data, isNotification)
     if (!isNotification) { return }
     const response = FanResponse.fromPrefixedBuffer(this.manufacturerPrefix, data)
     if (!response) { return }
@@ -270,6 +273,7 @@ class FanLightAccessory extends EventEmitter {
     }
 
     const buffer = command.toPrefixedBuffer(this.manufacturerPrefix)
+    this.log.debug('will send', this.manufacturerPrefix, buffer)
     this.writeCharacteristic.write(buffer, false, callback)
   }
 
@@ -279,6 +283,7 @@ class FanLightAccessory extends EventEmitter {
     this.once('updateState', callback)
 
     if (shouldSend) {
+      this.log.info('sending update command...')
       const command = new FanGetStateRequest()
       this.sendCommand(command, function(error){
         if (!error) { return }
