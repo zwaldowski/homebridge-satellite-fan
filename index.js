@@ -305,6 +305,8 @@ class FanLightAccessory extends EventEmitter {
   setFanOn(newValue, callback) {
     const level = newValue ? this.fanService.getCharacteristic(Characteristic.RotationSpeed).value : 0
     this.log.info('Fan on to level ' + newValue)
+    this.fanService.getCharacteristic(Characteristic.On).updateValue(newValue)
+
     const command = new FanUpdateLevelRequest(level)
     this.sendCommand(command, callback)
   }
@@ -322,6 +324,7 @@ class FanLightAccessory extends EventEmitter {
   setFanRotationSpeed(newValue, callback) {
     const level = Math.floor(newValue * (this.maximumFanLevel / 100))
     this.log.info('Fan speed: ' + level)
+    this.fanService.getCharacteristic(Characteristic.RotationSpeed).updateValue(newValue)
 
     const command = new FanUpdateLevelRequest(level)
     this.sendCommand(command, callback)
@@ -339,6 +342,8 @@ class FanLightAccessory extends EventEmitter {
 
   setLightOn(newValue, callback) {
     this.log.info('Light on: ' + newValue)
+    this.lightService.getCharacteristic(Characteristic.On).updateValue(newValue)
+
     const brightness = this.lightService.getCharacteristic(Characteristic.Brightness).value
     const command = new FanUpdateLightRequest(newValue, brightness)
     this.sendCommand(command, callback)
@@ -356,6 +361,8 @@ class FanLightAccessory extends EventEmitter {
 
   setLightBrightness(newValue, callback) {
     this.log.info('Light brightness: ' + newValue)
+    this.lightService.getCharacteristic(Characteristic.Brightness).updateValue(newValue)
+
     const isOn = this.lightService.getCharacteristic(Characteristic.On).value
     const command = new FanUpdateLightRequest(isOn, newValue)
     this.sendCommand(command, callback)
