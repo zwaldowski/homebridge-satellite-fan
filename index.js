@@ -206,12 +206,14 @@ class FanLightAccessory extends EventEmitter {
     }
     this.log.debug("Connected to " + peripheral.address)
 
-    peripheral.once('disconnect', function(error) { this.onDisconnect(peripheral, error) }.bind(this))
     peripheral.discoverSomeServicesAndCharacteristics([ this.serviceUUID ], [ this.writeCharacteristicUUID, this.notifyCharacteristicUUID ], this.onDiscoverCharacteristics.bind(this));
+    peripheral.once('disconnect', function(error) {
+      this.onDisconnect(error, peripheral)
+    }.bind(this))
   }
 
   onDiscoverCharacteristics(error, services, characteristics) {
-    if (error) {
+    if (error || characteristics.count < 2) {
       this.log.error(this.prefix, "Discover services failed: " + error)
       return
     }
@@ -224,12 +226,12 @@ class FanLightAccessory extends EventEmitter {
       if (error) {
         this.log.warn("Subscribe to notify characteristic failed")
       } else {
-        this.log.debug("Subscribed")
+        this.log.info("Connected")
       }
     }.bind(this));
   }
 
-  onDisconnect(peripheral, error) {
+  onDisconnect(error, peripheral) {
     peripheral.removeAllListeners()
 
     if (this.writeCharacteristic) {
@@ -345,6 +347,8 @@ class FanLightAccessory extends EventEmitter {
     this.lightService.getCharacteristic(Characteristic.On).updateValue(newValue)
 
     const brightness = this.lightService.getCharacteristic(Characteristic.Brightness).value
+    this.log.debug('Using current brightness ' + brightness)
+
     const command = new FanUpdateLightRequest(newValue, brightness)
     this.sendCommand(command, callback)
   }
