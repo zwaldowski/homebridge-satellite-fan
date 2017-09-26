@@ -186,13 +186,13 @@ class FanLightAccessory extends EventEmitter {
     }
 
     this.log.debug("Started scanning: " + state)
-    Noble.startScanning([ this.serviceUUID ], false)
+    Noble.startScanning()
     Noble.on('discover', this.onDiscover.bind(this))
   }
 
   onDiscover(peripheral) {
     this.log.info('found ' + peripheral.address)
-    if (trimAddress(peripheral.address) !== this.address) {
+    if (trimAddress(peripheral.address) !== this.address || (this.writeCharacteristic && this.notifyCharacteristic)) {
       this.log.debug("Ignoring " + peripheral.address + " (RSSI " + peripheral.rssi + "dB)")
       return
     }
@@ -215,26 +215,6 @@ class FanLightAccessory extends EventEmitter {
     }.bind(this))
   }
 
-  onDiscoverCharacteristics(error, services, characteristics) {
-    if (error || characteristics.count < 2) {
-      this.log.error(this.prefix, "Discover services failed: " + error)
-      return
-    }
-
-    this.writeCharacteristic = characteristics[0]
-    this.notifyCharacteristic = characteristics[1]
-
-    this.notifyCharacteristic.on('data', this.onNotify.bind(this))
-    this.notifyCharacteristic.subscribe(function (error) {
-      if (error) {
-        this.log.warn("Subscribe to notify characteristic failed")
-      }
-
-      this.log.info("Ready")
-      this.emit('ready')
-    }.bind(this));
-  }
-
   onDisconnect(error, peripheral) {
     peripheral.removeAllListeners()
 
@@ -251,11 +231,35 @@ class FanLightAccessory extends EventEmitter {
 
     this.log.info("Disconnected")
 
+    Noble.startScanning()
+
     if (this.listeners('updateState').length != 0) {
       this.sendUpdateStateRequest()
     }
+  }
 
-    Noble.startScanning([ this.serviceUUID ], false)
+  onDiscoverCharacteristics(error, services, characteristics) {
+    if (error || characteristics.count < 2) {
+      this.log.error(this.prefix, "Discover services failed: " + error)
+      return
+    }
+
+    const writeCharacteristic = characteristics[0],
+      notifyCharacteristic = characteristics[1]
+
+    notifyCharacteristic.on('data', this.onNotify.bind(this))
+    notifyCharacteristic.subscribe(function (error) {
+
+      if (error) {
+        this.log.warn("Subscribe to notify characteristic failed")
+      }
+
+      this.log.info("Ready")
+      this.emit('ready')
+    }.bind(this))
+
+    this.writeCharacteristic = writeCharacteristic
+    this.notifyCharacteristic = notifyCharacteristic
   }
 
   onNotify(data, isNotification) {
