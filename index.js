@@ -173,10 +173,10 @@ class FanLightAccessory extends EventEmitter {
 
   onDidFinishLaunching() {
     this.log.info("Received did finish launching")
-    Noble.on('stateChange', this.onStateChange.bind(this))
+    Noble.on('stateChange', this.onAdapterChange.bind(this))
   }
 
-  onStateChange(state) {
+  onAdapterChange(state) {
     if (state != 'poweredOn') {
       this.log.debug("Stopped scanning: " + state)
       Noble.stopScanning()
