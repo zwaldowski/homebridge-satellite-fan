@@ -291,10 +291,16 @@ class FanLightAccessory extends EventEmitter {
     }.bind(this))
   }
 
-  getNextFanState(callback) {
+  getNextValueForFanState(characteristic, callback) {
     const shouldSend = this.listeners('updateState').length == 0
 
-    this.once('updateState', callback)
+    this.once('updateState', function(error){
+      if (error) {
+        callback(error, null)
+      } else {
+        callback(null, characteristic.value)
+      }
+    })
 
     if (shouldSend) {
       sendUpdateStateRequest()
@@ -302,13 +308,7 @@ class FanLightAccessory extends EventEmitter {
   }
 
   getFanOn(callback) {
-    this.getNextFanState(function(error){
-      if (error) {
-        callback(error, null)
-      } else {
-        callback(null, this.fanService.getCharacteristic(Characteristic.On).value)
-      }
-    }.bind(this))
+    this.getNextValueForFanState(this.fanService.getCharacteristic(Characteristic.On), callback)
   }
 
   setFanOn(newValue, callback) {
@@ -321,13 +321,7 @@ class FanLightAccessory extends EventEmitter {
   }
 
   getFanRotationSpeed(callback) {
-    this.getNextFanState(function(error){
-      if (error) {
-        callback(error, null)
-      } else {
-        callback(null, this.fanService.getCharacteristic(Characteristic.RotationSpeed).value)
-      }
-    }.bind(this))
+    this.getNextValueForFanState(this.fanService.getCharacteristic(Characteristic.RotationSpeed), callback)
   }
 
   setFanRotationSpeed(newValue, callback) {
@@ -340,13 +334,7 @@ class FanLightAccessory extends EventEmitter {
   }
 
   getLightOn(callback) {
-    this.getNextFanState(function(error){
-      if (error) {
-        callback(error, null)
-      } else {
-        callback(null, this.lightService.getCharacteristic(Characteristic.On).value)
-      }
-    }.bind(this))
+    this.getNextValueForFanState(this.lightService.getCharacteristic(Characteristic.On), callback)
   }
 
   setLightOn(newValue, callback) {
@@ -361,13 +349,7 @@ class FanLightAccessory extends EventEmitter {
   }
 
   getLightBrightness(callback) {
-    this.getNextFanState(function(error){
-      if (error) {
-        callback(error, null)
-      } else {
-        callback(null, this.lightService.getCharacteristic(Characteristic.Brightness).value)
-      }
-    }.bind(this))
+    this.getNextValueForFanState(this.lightService.getCharacteristic(Characteristic.Brightness), callback)
   }
 
   setLightBrightness(newValue, callback) {
