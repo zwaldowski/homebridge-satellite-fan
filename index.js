@@ -191,7 +191,6 @@ class FanLightAccessory extends EventEmitter {
   }
 
   onDiscover(peripheral) {
-    this.log.info('found ' + peripheral.address)
     if (trimAddress(peripheral.address) !== this.address || (this.writeCharacteristic && this.notifyCharacteristic)) {
       this.log.debug("Ignoring " + peripheral.address + " (RSSI " + peripheral.rssi + "dB)")
       return
@@ -206,6 +205,8 @@ class FanLightAccessory extends EventEmitter {
   onConnect(error, peripheral) {
     if (error) {
       this.log.error("Connecting to " + peripheral.address + " failed: " + error)
+      this.onDisconnect(error, peripheral)
+      return
     }
     this.log.debug("Connected to " + peripheral.address)
 
@@ -216,8 +217,6 @@ class FanLightAccessory extends EventEmitter {
   }
 
   onDisconnect(error, peripheral) {
-    peripheral.removeAllListeners()
-
     if (this.writeCharacteristic) {
       this.writeCharacteristic.removeAllListeners()
     }
@@ -249,7 +248,6 @@ class FanLightAccessory extends EventEmitter {
 
     notifyCharacteristic.on('data', this.onNotify.bind(this))
     notifyCharacteristic.subscribe(function (error) {
-
       if (error) {
         this.log.warn("Subscribe to notify characteristic failed")
       }
@@ -265,7 +263,6 @@ class FanLightAccessory extends EventEmitter {
   onNotify(data, isNotification) {
     const response = FanResponse.fromPrefixedBuffer(this.manufacturerPrefix, data)
     if (!response) { return }
-
     this.log.debug('received fan state')
 
     this.maximumFanLevel = response.maximumFanLevel
