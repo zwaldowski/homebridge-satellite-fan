@@ -254,18 +254,18 @@ class FanLightAccessory extends EventEmitter {
         this.log.warn("Subscribe to notify characteristic failed")
       }
 
+      this.writeCharacteristic = writeCharacteristic
+      this.notifyCharacteristic = notifyCharacteristic
+
       this.log.info("Ready")
       this.emit('ready')
     }.bind(this))
-
-    this.writeCharacteristic = writeCharacteristic
-    this.notifyCharacteristic = notifyCharacteristic
   }
 
   onNotify(data, isNotification) {
-    if (!isNotification) { return }
     const response = FanResponse.fromPrefixedBuffer(this.manufacturerPrefix, data)
     if (!response) { return }
+
     this.log.debug('received fan state')
 
     this.maximumFanLevel = response.maximumFanLevel
