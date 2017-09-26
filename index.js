@@ -252,7 +252,7 @@ class FanLightAccessory extends EventEmitter {
     this.log.info("Disconnected")
 
     if (this.listeners('updateState').length != 0) {
-      sendUpdateStateRequest()
+      this.sendUpdateStateRequest()
     }
 
     Noble.startScanning([ this.serviceUUID ], false)
@@ -310,7 +310,7 @@ class FanLightAccessory extends EventEmitter {
     })
 
     if (shouldSend) {
-      sendUpdateStateRequest()
+      this.sendUpdateStateRequest()
     }
   }
 
