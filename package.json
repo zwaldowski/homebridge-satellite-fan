@@ -2,7 +2,7 @@
   "name": "homebridge-satellite-fan",
   "description": "Plugin for homebridge that connects to a Satellite Fan control module: https://www.fan-light.com",
   "author": "Zachary Waldowski <zach@waldowski.me> (https://waldowski.me)",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "license": "MIT",
   "keywords": [
     "homebridge-plugin",
