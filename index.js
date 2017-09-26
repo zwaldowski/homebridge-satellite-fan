@@ -245,9 +245,12 @@ class FanLightAccessory extends EventEmitter {
     }
     this.notifyCharacteristic = null
 
-    this.emit('stateChange', error || new Error('Not connected'))
-
     this.log.info("Disconnected")
+
+    if (this.listeners('updateState').length != 0) {
+      sendUpdateStateRequest()
+    }
+
     Noble.startScanning([ this.serviceUUID ], false)
   }
 
@@ -279,18 +282,22 @@ class FanLightAccessory extends EventEmitter {
     this.writeCharacteristic.write(buffer, false, callback)
   }
 
+  sendUpdateStateRequest() {
+    this.log.info('coalesced update request')
+    const command = new FanGetStateRequest()
+    this.sendCommand(command, function(error){
+      if (!error) { return }
+      this.emit('updateState', error)
+    }.bind(this))
+  }
+
   getNextFanState(callback) {
     const shouldSend = this.listeners('updateState').length == 0
 
     this.once('updateState', callback)
 
     if (shouldSend) {
-      this.log.info('sending update command...')
-      const command = new FanGetStateRequest()
-      this.sendCommand(command, function(error){
-        if (!error) { return }
-        this.emit('updateState', error)
-      }.bind(this))
+      sendUpdateStateRequest()
     }
   }
 
