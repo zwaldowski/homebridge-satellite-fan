@@ -49,13 +49,16 @@ class FanRequest {
     buffer.writeUInt8(checksum, buffer.length - 1)
     return buffer
   }
+
 }
 
 class FanGetStateRequest extends FanRequest {
+
   writeInto(buffer) {
     buffer.fill(0)
     buffer.writeUInt8(160)
   }
+
 }
 
 Math.clamp = function(number, min, max) {
@@ -221,13 +224,14 @@ class FanLightAccessory extends EventEmitter {
     this.writeCharacteristic = characteristics[0]
     this.notifyCharacteristic = characteristics[1]
 
-    this.notifyCharacteristic.on('data', this.onNotify.bind(this));
+    this.notifyCharacteristic.on('data', this.onNotify.bind(this))
     this.notifyCharacteristic.subscribe(function (error) {
       if (error) {
         this.log.warn("Subscribe to notify characteristic failed")
-      } else {
-        this.log.info("Connected")
       }
+
+      this.log.info("Ready")
+      this.emit('ready')
     }.bind(this));
   }
 
@@ -273,7 +277,10 @@ class FanLightAccessory extends EventEmitter {
 
   sendCommand(command, callback) {
     if (!this.notifyCharacteristic || !this.writeCharacteristic) {
-      callback(new Error('Not connected'))
+      this.log.info('waiting on connect...')
+      this.once('ready', function() {
+        this.sendCommand(command, callback)
+      }.bind(this))
       return
     }
 
