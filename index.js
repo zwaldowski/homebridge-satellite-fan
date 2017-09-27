@@ -133,6 +133,9 @@ class FanLightAccessory extends EventEmitter {
 
   constructor (log, config) {
     super()
+
+    this.onDiscover = this.onDiscover.bind(this)
+
     this.log = log
     this.name = config.name || "Ceiling Fan"
     if (!config.address) {
@@ -172,6 +175,47 @@ class FanLightAccessory extends EventEmitter {
     callback()
   }
 
+  startDiscovering() {
+    Noble.on('scanStop', function() {
+      setTimeout(function() {
+        Noble.startScanning([], true)
+      }, 2500)
+    })
+
+    Noble.on('discover', this.onDiscover)
+    Noble.startScanning([], true)
+  }
+
+  stopDiscovering() {
+    Noble.removeListener('discover', this.onDiscover)
+    if (Noble.listenerCount('discover') == 0) {
+      Noble.removeAllListeners('scanStop')
+    }
+  }
+
+  sendCommand(command, callback) {
+    if (!this.notifyCharacteristic || !this.writeCharacteristic) {
+      this.log.info('waiting on connect...')
+      this.once('ready', function() {
+        this.sendCommand(command, callback)
+      }.bind(this))
+      return
+    }
+
+    const buffer = command.toPrefixedBuffer(this.manufacturerPrefix)
+    this.log.debug('will send', this.manufacturerPrefix, buffer)
+    this.writeCharacteristic.write(buffer, false, callback)
+  }
+
+  sendUpdateStateRequest() {
+    this.log.info('coalesced update request')
+    const command = new FanGetStateRequest()
+    this.sendCommand(command, function(error){
+      if (!error) { return }
+      this.emit('updateState', error)
+    }.bind(this))
+  }
+
   // MARK: -
 
   onDidFinishLaunching() {
@@ -180,14 +224,15 @@ class FanLightAccessory extends EventEmitter {
   }
 
   onAdapterChange(state) {
+    Noble.removeAllListeners('scanStop')
+    Noble.stopScanning()
+
     if (state != 'poweredOn') {
       this.log.debug("Stopped scanning: " + state)
-      Noble.stopScanning()
+      return
     }
 
-    this.log.debug("Started scanning: " + state)
-    Noble.startScanning()
-    Noble.on('discover', this.onDiscover.bind(this))
+    this.startDiscovering()
   }
 
   onDiscover(peripheral) {
@@ -197,6 +242,7 @@ class FanLightAccessory extends EventEmitter {
     }
 
     this.log.debug("Found " + peripheral.address + " (RSSI " + peripheral.rssi + "dB)")
+    this.stopDiscovering()
     peripheral.connect(function(error) {
       this.onConnect(error, peripheral)
     }.bind(this))
@@ -218,21 +264,23 @@ class FanLightAccessory extends EventEmitter {
 
   onDisconnect(error, peripheral) {
     if (this.writeCharacteristic) {
-      this.writeCharacteristic.removeAllListeners()
+      this.writeCharacteristic.removeAllListeners('set')
     }
     this.writeCharacteristic = null
 
     if (this.notifyCharacteristic) {
       this.notifyCharacteristic.unsubscribe(null)
-      this.notifyCharacteristic.removeAllListeners()
+      this.notifyCharacteristic.removeAllListeners('data')
     }
     this.notifyCharacteristic = null
 
+    peripheral.removeAllListeners()
+
     this.log.info("Disconnected")
 
-    Noble.startScanning()
+    this.startDiscovering()
 
-    if (this.listeners('updateState').length != 0) {
+    if (this.listenerCount('updateState') != 0) {
       this.sendUpdateStateRequest()
     }
   }
@@ -276,31 +324,8 @@ class FanLightAccessory extends EventEmitter {
 
   // MARK: -
 
-  sendCommand(command, callback) {
-    if (!this.notifyCharacteristic || !this.writeCharacteristic) {
-      this.log.info('waiting on connect...')
-      this.once('ready', function() {
-        this.sendCommand(command, callback)
-      }.bind(this))
-      return
-    }
-
-    const buffer = command.toPrefixedBuffer(this.manufacturerPrefix)
-    this.log.debug('will send', this.manufacturerPrefix, buffer)
-    this.writeCharacteristic.write(buffer, false, callback)
-  }
-
-  sendUpdateStateRequest() {
-    this.log.info('coalesced update request')
-    const command = new FanGetStateRequest()
-    this.sendCommand(command, function(error){
-      if (!error) { return }
-      this.emit('updateState', error)
-    }.bind(this))
-  }
-
   getNextValueForFanState(characteristic, callback) {
-    const shouldSend = this.listeners('updateState').length == 0
+    const shouldSend = this.listenerCount('updateState') == 0
 
     this.once('updateState', function(error){
       if (error) {
