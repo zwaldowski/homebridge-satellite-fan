@@ -416,6 +416,10 @@ class FanLightAccessory extends EventEmitter {
       .on('set', this.setFanOn.bind(this))
 
     service.getCharacteristic(Characteristic.RotationSpeed)
+      .setProps({
+        maxValue: 99,
+        minStep: 33
+      })
       .on('get', this.getFanRotationSpeed.bind(this))
       .on('set', this.setFanRotationSpeed.bind(this))
 
