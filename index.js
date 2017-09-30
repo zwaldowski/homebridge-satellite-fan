@@ -193,6 +193,7 @@ class FanLightAccessory extends EventEmitter {
     Noble.removeListener('discover', this.onDiscover)
     if (Noble.listenerCount('discover') == 0) {
       Noble.removeAllListeners('scanStop')
+      Noble.stopScanning()
     }
   }
 
