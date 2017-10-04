@@ -102,6 +102,13 @@ class FanUpdateLevelRequest extends FanRequest {
 
 class FanResponse {
 
+  static get Keys() { return {
+    FAN_LEVEL: 'fanLevel',
+    FAN_SPEED: 'fanSpeed',
+    LIGHT_ON: 'lightIsOn',
+    LIGHT_BRIGHTNESS: 'lightBrightness'
+  } }
+
   static fromPrefixedBuffer(prefix, buffer) {
     if (prefix > 0) {
       buffer = buffer.slice(1)
@@ -110,19 +117,21 @@ class FanResponse {
     if (buffer.readUInt8(0) != 176) { return null }
     const response = new FanResponse()
 
-    const windVelocity = buffer.readUInt8(2)
-    response.supportsFanReversal = (windVelocity & 0b00100000) != 0
-    response.maximumFanLevel     =  windVelocity & 0b00011111
+    const windVelocity       = buffer.readUInt8(2)
+    response.fanLevelMaximum = windVelocity & 0b00011111
 
     const currentWindVelocity = buffer.readUInt8(4)
-    response.isFanReversed     = (currentWindVelocity & 0b10000000) != 0
-    response.fanLevel          =  currentWindVelocity & 0b00011111
+    response.fanLevel         = currentWindVelocity & 0b00011111
 
-    const currentBrightness = buffer.readUInt8(6)
+    const currentBrightness  = buffer.readUInt8(6)
     response.lightIsOn       = (currentBrightness & 0b10000000) != 0
     response.lightBrightness = (currentBrightness & 0b01111111)
 
     return response
+  }
+
+  get fanSpeed() {
+    return (this.fanLevel / this.fanLevelMaximum) * 100
   }
 
 }
@@ -165,7 +174,7 @@ class FanLightAccessory extends EventEmitter {
     this.fanService = this.makeFanService(config)
     this.lightService = this.makeLightService(config)
 
-    this.maximumFanLevel = 3
+    this.fanLevelMaximum = 3
 
     Homebridge.on('didFinishLaunching', this.onDidFinishLaunching.bind(this))
   }
@@ -202,6 +211,10 @@ class FanLightAccessory extends EventEmitter {
       Noble.removeAllListeners('scanStop')
       Noble.stopScanning()
     }
+  }
+
+  fanSpeedToLevel(value) {
+    return Math.ceil(value * (this.fanLevelMaximum / 100))
   }
 
   sendCommand(command, callback) {
@@ -324,25 +337,30 @@ class FanLightAccessory extends EventEmitter {
     if (!response) { return }
     this.log.debug('received fan state')
 
-    this.maximumFanLevel = response.maximumFanLevel
-    this.fanService.getCharacteristic(Characteristic.On).updateValue(response.fanLevel != 0)
-    this.fanService.getCharacteristic(Characteristic.RotationSpeed).updateValue(Math.ceil((response.fanLevel / response.maximumFanLevel) * 100))
+    this.fanLevelMaximum = response.fanLevelMaximum
+
+    this.emit('updateState', null, response)
+
+    if (response.fanLevel != 0) {
+      this.fanService.getCharacteristic(Characteristic.On).updateValue(true)
+      this.fanService.getCharacteristic(Characteristic.RotationSpeed).updateValue(response.fanSpeed)
+    } else {
+      this.fanService.getCharacteristic(Characteristic.On).updateValue(false)
+    }
     this.lightService.getCharacteristic(Characteristic.On).updateValue(response.lightIsOn)
     this.lightService.getCharacteristic(Characteristic.Brightness).updateValue(response.lightBrightness)
-
-    this.emit('updateState', null)
   }
 
   // MARK: -
 
-  getNextValueForFanState(characteristic, callback) {
+  getNextValueForFanState(key, callback) {
     const shouldSend = this.listenerCount('updateState') == 0
 
-    this.once('updateState', function(error){
+    this.once('updateState', function(error, response) {
       if (error) {
         callback(error, null)
       } else {
-        callback(null, characteristic.value)
+        callback(null, response[key])
       }
     })
 
@@ -352,7 +370,9 @@ class FanLightAccessory extends EventEmitter {
   }
 
   getFanOn(callback) {
-    this.getNextValueForFanState(this.fanService.getCharacteristic(Characteristic.On), callback)
+    this.getNextValueForFanState(FanResponse.Keys.FAN_LEVEL, function(error, level) {
+      callback(error, error ? null : level != 0)
+    }.bind(this))
   }
 
   setFanOn(newValue, callback) {
@@ -365,11 +385,11 @@ class FanLightAccessory extends EventEmitter {
   }
 
   getFanRotationSpeed(callback) {
-    this.getNextValueForFanState(this.fanService.getCharacteristic(Characteristic.RotationSpeed), callback)
+    this.getNextValueForFanState(FanResponse.Keys.FAN_SPEED, callback)
   }
 
   setFanRotationSpeed(newValue, callback) {
-    const level = Math.ceil(newValue * (this.maximumFanLevel / 100))
+    const level = this.fanSpeedToLevel(newValue)
     this.log.info('Fan speed: ' + level)
     this.fanService.getCharacteristic(Characteristic.RotationSpeed).updateValue(newValue)
 
@@ -378,7 +398,7 @@ class FanLightAccessory extends EventEmitter {
   }
 
   getLightOn(callback) {
-    this.getNextValueForFanState(this.lightService.getCharacteristic(Characteristic.On), callback)
+    this.getNextValueForFanState(FanResponse.Keys.LIGHT_ON, callback)
   }
 
   setLightOn(newValue, callback) {
@@ -393,7 +413,7 @@ class FanLightAccessory extends EventEmitter {
   }
 
   getLightBrightness(callback) {
-    this.getNextValueForFanState(this.lightService.getCharacteristic(Characteristic.Brightness), callback)
+    this.getNextValueForFanState(FanResponse.Keys.LIGHT_BRIGHTNESS, callback)
   }
 
   setLightBrightness(newValue, callback) {
