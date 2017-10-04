@@ -181,12 +181,12 @@ class FanLightAccessory extends EventEmitter {
     Noble.on('scanStop', function() {
       setTimeout(function() {
         this.log.debug('Restart from scan stop')
-        Noble.startScanning([], true)
+        Noble.startScanning()
       }.bind(this), 1000)
     }.bind(this))
 
     Noble.on('discover', this.onDiscover)
-    Noble.startScanning([], true)
+    Noble.startScanning()
     this.log.debug('discover count ', Noble.listenerCount('discover'))
 
     setTimeout(function() {
