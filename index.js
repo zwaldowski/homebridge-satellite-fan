@@ -228,7 +228,12 @@ class FanLightAccessory extends EventEmitter {
 
     const buffer = command.toPrefixedBuffer(this.manufacturerPrefix)
     this.log.debug('will send', this.manufacturerPrefix, buffer)
-    this.writeCharacteristic.write(buffer, false, callback)
+    this.writeCharacteristic.write(buffer, false, function(error){
+      if (!error) {
+        this.log.debug('sent')
+      }
+      callback(error)
+    }.bind(this))
   }
 
   sendUpdateStateRequest() {
@@ -369,6 +374,32 @@ class FanLightAccessory extends EventEmitter {
     }
   }
 
+  enqueueWriteForDependentValue(service, characteristic, produceCommand, callback) {
+    if (!this.writeCharacteristic) {
+      this.once('ready', function() {
+        this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
+      }.bind(this))
+      return
+    }
+
+    if (this.writeCharacteristic.listenerCount('write') != 0) {
+      this.writeCharacteristic.once('write', function() {
+        this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
+      }.bind(this))
+      return
+    }
+
+    if (this.listenerCount('updateState') != 0) {
+      this.once('updateState', function() {
+        this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
+      }.bind(this))
+      return
+    }
+
+    const command = produceCommand(service.getCharacteristic(characteristic).value)
+    this.sendCommand(command, callback)
+  }
+
   getFanOn(callback) {
     this.getNextValueForFanState(FanResponse.Keys.FAN_LEVEL, function(error, level) {
       callback(error, error ? null : level != 0)
@@ -376,12 +407,20 @@ class FanLightAccessory extends EventEmitter {
   }
 
   setFanOn(newValue, callback) {
-    const level = newValue ? this.fanService.getCharacteristic(Characteristic.RotationSpeed).value : 0
-    this.log.info('Fan on to level ' + newValue)
-    this.fanService.getCharacteristic(Characteristic.On).updateValue(newValue)
+    this.log.info('Fan on: ' + newValue)
 
-    const command = new FanUpdateLevelRequest(level)
-    this.sendCommand(command, callback)
+    if (!newValue) {
+      const command = new FanUpdateLevelRequest(0)
+      this.sendCommand(command, callback)
+      return
+    }
+
+    this.enqueueWriteForDependentValue(this.fanService, Characteristic.RotationSpeed, function(currentSpeed){
+      const level = this.fanSpeedToLevel(currentSpeed)
+      this.log.debug('Using current level: ' + level)
+
+      return new FanUpdateLevelRequest(level)
+    }.bind(this), callback)
   }
 
   getFanRotationSpeed(callback) {
@@ -391,7 +430,6 @@ class FanLightAccessory extends EventEmitter {
   setFanRotationSpeed(newValue, callback) {
     const level = this.fanSpeedToLevel(newValue)
     this.log.info('Fan speed: ' + level)
-    this.fanService.getCharacteristic(Characteristic.RotationSpeed).updateValue(newValue)
 
     const command = new FanUpdateLevelRequest(level)
     this.sendCommand(command, callback)
@@ -403,13 +441,11 @@ class FanLightAccessory extends EventEmitter {
 
   setLightOn(newValue, callback) {
     this.log.info('Light on: ' + newValue)
-    this.lightService.getCharacteristic(Characteristic.On).updateValue(newValue)
 
-    const brightness = this.lightService.getCharacteristic(Characteristic.Brightness).value
-    this.log.debug('Using current brightness ' + brightness)
-
-    const command = new FanUpdateLightRequest(newValue, brightness)
-    this.sendCommand(command, callback)
+    this.enqueueWriteForDependentValue(this.lightService, Characteristic.Brightness, function(currentBrightness) {
+      this.log.debug('Using current brightness: ' + currentBrightness)
+      return new FanUpdateLightRequest(newValue, currentBrightness)
+    }.bind(this), callback)
   }
 
   getLightBrightness(callback) {
@@ -418,11 +454,10 @@ class FanLightAccessory extends EventEmitter {
 
   setLightBrightness(newValue, callback) {
     this.log.info('Light brightness: ' + newValue)
-    this.lightService.getCharacteristic(Characteristic.Brightness).updateValue(newValue)
 
-    const isOn = this.lightService.getCharacteristic(Characteristic.On).value
-    const command = new FanUpdateLightRequest(isOn, newValue)
-    this.sendCommand(command, callback)
+    this.enqueueWriteForDependentValue(this.lightService, Characteristic.On, function(currentlyOn) {
+      return new FanUpdateLightRequest(currentlyOn, newValue)
+    }, callback)
   }
 
   // MARK: -
