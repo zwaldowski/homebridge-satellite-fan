@@ -1,16 +1,16 @@
 {
   "bridge": {
-    "name": "Raspberry Pi",
-    "username": "00:00:00:00:00:00", # cat /sys/class/net/wlan0/address
-    "pin": "123-45-678",
-    "manufacturer": "Raspberry Pi Foundation", # optional
+    "name": "Raspberry Pi", # optional
+    "username": "00:00:00:00:00:00", # optional; maybe `cat /sys/class/net/wlan0/address`
+    "pin": "123-45-678", # optional
+    "manufacturer": "Raspberry Pi Foundation", # optional; up to you
     "model": "Zero W 1.1", # optional; up to you
-    "serialNumber": "0000000044bb145c" # optional; cat /proc/cpuinfo | grep Serial | awk ' {print $3}'
+    "serialNumber": "0000000044bb145c" # optional; maybe `cat /proc/cpuinfo | grep Serial | awk ' {print $3}'`
   },
   "accessories": [ {
       "name": "Ceiling Fan",
       "accessory": "satellite-fan",
-      "address": "00:00:00:00:00:00", # Bluetooth address of the accessory. Non-matching devices are ignored.
+      "address": "00:00:00:00:00:00", # MAC address for the fan module; `sudo hcitool scan`
       "device": { # optional
         "manufacturer": "Harbor Bay", # optional
         "model": "00000", # optional
@@ -18,9 +18,9 @@
       },
       "ble": {
         "prefix": 42, # Prefix code used for commands sent to the device.
-        "serviceUUID": "00000000-0000-0000-0000-000000000000", # Bluetooth UUID of the service. Capitalization and dashes doesn't matter.
-        "writeCharacteristicUUID": "00000000-0000-0000-0000-000000000000", # Bluetooth UUID of the characteristic. Capitalization and dashes doesn't matter.
-        "notifyCharacteristicUUID": "00000000-0000-0000-0000-000000000000" # Bluetooth UUID of the characteristic. Capitalization and dashes doesn't matter.
+        "serviceUUID": "539C6813-61A0-2137-4F79-BF1A11984790", # Bluetooth UUID of the service. Capitalization and dashes doesn't matter.
+        "writeCharacteristicUUID": "539C6813-61A1-2137-4F79-BF1A11984790", # Bluetooth UUID of the characteristic. Capitalization and dashes doesn't matter.
+        "notifyCharacteristicUUID": "539C6813-61A2-2137-4F79-BF1A11984790" # Bluetooth UUID of the characteristic. Capitalization and dashes doesn't matter.
       }
   } ]
 }
