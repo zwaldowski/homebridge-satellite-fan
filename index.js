@@ -194,22 +194,7 @@ class FanLightAccessory extends EventEmitter {
     }.bind(this), 12500)
   }
 
-  startDiscovering() {
-    this.log.debug('Start discovery')
-
-    Noble.on('scanStop', function() {
-      setTimeout(function() {
-        this.log.debug('Restart from scan stop')
-        this.startScanningWithTimeout()
-      }.bind(this), 2500)
-    }.bind(this))
-
-    Noble.on('discover', this.onDiscover)
-    this.log.debug('discover count ', Noble.listenerCount('discover'))
-    this.startScanningWithTimeout()
-  }
-
-  stopDiscovering() {
+  stopScanning() {
     Noble.removeListener('discover', this.onDiscover)
     if (Noble.listenerCount('discover') == 0) {
       Noble.removeAllListeners('scanStop')
@@ -265,7 +250,18 @@ class FanLightAccessory extends EventEmitter {
       return
     }
 
-    this.startDiscovering()
+    this.log.debug('Starting scan')
+
+    Noble.on('scanStop', function() {
+      setTimeout(function() {
+        this.log.debug('Restart from scan stop')
+        this.startScanningWithTimeout()
+      }.bind(this), 2500)
+    }.bind(this))
+
+    Noble.on('discover', this.onDiscover)
+    this.log.debug('discover count ', Noble.listenerCount('discover'))
+    this.startScanningWithTimeout()
   }
 
   onDiscover(peripheral) {
@@ -275,7 +271,7 @@ class FanLightAccessory extends EventEmitter {
     }
 
     this.log.debug("Found " + peripheral.address + " (RSSI " + peripheral.rssi + "dB)")
-    this.stopDiscovering()
+    this.stopScanning()
     peripheral.connect(function(error) {
       this.onConnect(error, peripheral)
     }.bind(this))
@@ -311,7 +307,7 @@ class FanLightAccessory extends EventEmitter {
 
     this.log.info("Disconnected")
 
-    this.startDiscovering()
+    this.onDiscover(peripheral)
 
     if (this.listenerCount('updateState') != 0) {
       this.sendUpdateStateRequest()
