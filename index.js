@@ -352,8 +352,11 @@ class FanLightAccessory extends EventEmitter {
     } else {
       this.fanService.getCharacteristic(Characteristic.On).updateValue(false)
     }
-    this.lightService.getCharacteristic(Characteristic.On).updateValue(response.lightIsOn)
-    this.lightService.getCharacteristic(Characteristic.Brightness).updateValue(response.lightBrightness)
+
+    if (this.lightService) {
+      this.lightService.getCharacteristic(Characteristic.On).updateValue(response.lightIsOn)
+      this.lightService.getCharacteristic(Characteristic.Brightness).updateValue(response.lightBrightness)
+    }
   }
 
   // MARK: -
@@ -493,6 +496,8 @@ class FanLightAccessory extends EventEmitter {
   }
 
   makeLightService(config) {
+    if (config.light === false) { return null }
+
     const service = new Service.Lightbulb(this.name)
 
     service.getCharacteristic(Characteristic.On)
@@ -507,7 +512,7 @@ class FanLightAccessory extends EventEmitter {
   }
 
   getServices () {
-    return [ this.informationService, this.fanService, this.lightService ]
+    return [ this.informationService, this.fanService, this.lightService ].filter(Boolean)
   }
 
 }

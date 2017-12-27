@@ -21,6 +21,7 @@
         "serviceUUID": "539C6813-61A0-2137-4F79-BF1A11984790", # Bluetooth UUID of the service. Capitalization and dashes doesn't matter.
         "writeCharacteristicUUID": "539C6813-61A1-2137-4F79-BF1A11984790", # Bluetooth UUID of the characteristic. Capitalization and dashes doesn't matter.
         "notifyCharacteristicUUID": "539C6813-61A2-2137-4F79-BF1A11984790" # Bluetooth UUID of the characteristic. Capitalization and dashes doesn't matter.
-      }
+      },
+      "light": false,
   } ]
 }
