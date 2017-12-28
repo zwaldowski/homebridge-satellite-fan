@@ -385,15 +385,15 @@ class FanLightAccessory extends EventEmitter {
       return
     }
 
-    if (this.writeCharacteristic.listenerCount('write') != 0) {
-      this.writeCharacteristic.once('write', function() {
+    if (this.listenerCount('updateState') != 0) {
+      this.once('updateState', function() {
         this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
       }.bind(this))
       return
     }
 
-    if (this.listenerCount('updateState') != 0) {
-      this.once('updateState', function() {
+    if (this.writeCharacteristic.listenerCount('write') <= 1) {
+      this.writeCharacteristic.once('write', function() {
         this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
       }.bind(this))
       return
