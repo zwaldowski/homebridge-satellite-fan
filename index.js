@@ -374,26 +374,34 @@ class FanLightAccessory extends EventEmitter {
 
     if (shouldSend) {
       this.sendUpdateStateRequest()
+    } else {
+      this.log.debug('Skipping send update')
     }
   }
 
   enqueueWriteForDependentValue(service, characteristic, produceCommand, callback) {
-    if (!this.writeCharacteristic) {
+    if (!this.notifyCharacteristic || !this.writeCharacteristic) {
+      this.log.debug('Defer write for ready')
       this.once('ready', function() {
+        this.log.debug('Dequeue write from ready')
         this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
       }.bind(this))
       return
     }
 
     if (this.listenerCount('updateState') != 0) {
+      this.log.debug('Defer write for update state')
       this.once('updateState', function() {
+        this.log.debug('Dequeuing write from update state')
         this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
       }.bind(this))
       return
     }
 
-    if (this.writeCharacteristic.listenerCount('write') <= 1) {
+    if (this.writeCharacteristic.listenerCount('write') >= 1) {
+      this.log.debug('Defer write for active write')
       this.writeCharacteristic.once('write', function() {
+        this.log.debug('Dequeue write from active write')
         this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
       }.bind(this))
       return
