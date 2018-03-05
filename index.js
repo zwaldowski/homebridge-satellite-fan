@@ -98,13 +98,6 @@ class FanUpdateLevelRequest extends FanRequest {
 
 class FanResponse {
 
-  static get Keys() { return {
-    FAN_LEVEL: 'fanLevel',
-    FAN_SPEED: 'fanSpeed',
-    LIGHT_ON: 'lightIsOn',
-    LIGHT_BRIGHTNESS: 'lightBrightness'
-  } }
-
   static fromPrefixedBuffer(prefix, buffer) {
     if (prefix > 0) {
       buffer = buffer.slice(1)
@@ -177,7 +170,37 @@ class FanLightAccessory extends EventEmitter {
 
   identify (callback) {
     this.log('Device identified!')
-    callback()
+    if (config.light === false) {
+      this.log.debug('...but I am just a lowly fan.')
+      return callback()
+    }
+
+    this.isInIdentify = true
+
+    const delay = 500,
+      count = 3,
+      originalBrightness = this.lightService.getCharacteristic(Characteristic.Brightness),
+      originalOn = this.lightService.getCharacteristic(Characteristic.On).value
+
+    for (var i = 0; i < count; i++) {
+        setTimeout(function () {
+          const command = new FanUpdateLightRequest(false, originalBrightness)
+          this.sendCommand(command)
+        }.bind(this), delay * (1 + i * 2));
+
+        setTimeout(function () {
+          const command = new FanUpdateLightRequest(true, 100)
+          this.sendCommand(command)
+        }.bind(this), delay * (2 + i * 2));
+    }
+
+    setTimeout(function () {
+        const command = new FanUpdateLightRequest(originalOn, originalBrightness)
+        this.sendCommand(command)
+
+        this.isInIdentify = false
+        this.sendUpdateStateRequest()
+    }.bind(this), delay * (2 + count * 2));
   }
 
   startScanningWithTimeout() {
@@ -225,12 +248,10 @@ class FanLightAccessory extends EventEmitter {
   }
 
   sendUpdateStateRequest() {
-    this.log.info('coalesced update request')
+    if (this.isInIdentify === true) { return }
+    this.log.info('update request')
     const command = new FanGetStateRequest()
-    this.sendCommand(command, function(error){
-      if (!error) { return }
-      this.emit('updateState', error)
-    }.bind(this))
+    this.sendCommand(command)
   }
 
   // MARK: -
@@ -307,10 +328,6 @@ class FanLightAccessory extends EventEmitter {
     this.log.info("Disconnected")
 
     this.onDiscover(peripheral)
-
-    if (this.listenerCount('updateState') != 0) {
-      this.sendUpdateStateRequest()
-    }
   }
 
   onDiscoverCharacteristics(error, services, characteristics) {
@@ -332,7 +349,7 @@ class FanLightAccessory extends EventEmitter {
       this.notifyCharacteristic = notifyCharacteristic
 
       this.log.info("Ready")
-      this.emit('ready')
+      this.sendUpdateStateRequest()
     }.bind(this))
   }
 
@@ -349,8 +366,6 @@ class FanLightAccessory extends EventEmitter {
     })
     this.fanLevelMaximum = response.fanLevelMaximum
 
-    this.emit('updateState', null, response)
-
     if (response.fanLevel != 0) {
       this.fanService.getCharacteristic(Characteristic.On).updateValue(true)
       this.fanService.getCharacteristic(Characteristic.RotationSpeed).updateValue(response.fanSpeed)
@@ -362,118 +377,83 @@ class FanLightAccessory extends EventEmitter {
       this.lightService.getCharacteristic(Characteristic.On).updateValue(response.lightIsOn)
       this.lightService.getCharacteristic(Characteristic.Brightness).updateValue(response.lightBrightness)
     }
+
+    this.emit('updateState', null, response)
+
+    setTimeout(this.sendUpdateStateRequest.bind(this), 12500)
   }
 
   // MARK: -
 
-  getNextValueForFanState(key, callback) {
-    const shouldSend = this.listenerCount('updateState') == 0
-
-    this.once('updateState', function(error, response) {
-      if (error) {
-        callback(error, null)
-      } else {
-        callback(null, response[key])
-      }
-    })
-
-    if (shouldSend) {
-      this.sendUpdateStateRequest()
-    } else {
-      this.log.debug('Skipping send update')
-    }
-  }
-
-  enqueueWriteForDependentValue(service, characteristic, produceCommand, callback) {
-    if (!this.notifyCharacteristic || !this.writeCharacteristic) {
-      this.log.debug('Defer write for ready')
-      this.once('ready', function() {
-        this.log.debug('Dequeue write from ready')
-        this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
+  setFanOn(newValue, callback) {
+    this.scratchFanOn = newValue
+    if (this.scratchFanRotationSpeed === undefined) {
+      this.once('updateState', function(){
+        this.setFanOn(newValue, callback)
       }.bind(this))
       return
     }
 
-    if (this.listenerCount('updateState') != 0) {
-      this.log.debug('Defer write for update state')
-      this.once('updateState', function() {
-        this.log.debug('Dequeuing write from update state')
-        this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
-      }.bind(this))
-      return
-    }
+    const currentRotationSpeed = this.scratchFanRotationSpeed
+    const currentLevel = this.fanSpeedToLevel(currentRotationSpeed)
+    this.log.info('Fan on: ' + newValue)
+    this.log.debug('Using current level: ' + currentLevel)
 
-    if (this.writeCharacteristic.listenerCount('write') >= 1) {
-      this.log.debug('Defer write for active write')
-      this.writeCharacteristic.once('write', function() {
-        this.log.debug('Dequeue write from active write')
-        this.enqueueWriteForDependentValue(service, characteristic, produceCommand, callback)
-      }.bind(this))
-      return
-    }
-
-    const command = produceCommand(service.getCharacteristic(characteristic).value)
+    const command = new FanUpdateLevelRequest(newValue ? currentLevel : 0)
     this.sendCommand(command, callback)
   }
 
-  getFanOn(callback) {
-    this.getNextValueForFanState(FanResponse.Keys.FAN_LEVEL, function(error, level) {
-      callback(error, error ? null : level != 0)
-    }.bind(this))
-  }
-
-  setFanOn(newValue, callback) {
-    this.log.info('Fan on: ' + newValue)
-
-    if (!newValue) {
-      const command = new FanUpdateLevelRequest(0)
-      this.sendCommand(command, callback)
+  setFanRotationSpeed(newValue, callback) {
+    this.scratchFanRotationSpeed = newValue
+    if (this.scratchFanOn === undefined) {
+      this.once('updateState', function(){
+        this.setFanRotationSpeed(newValue, callback)
+      }.bind(this))
       return
     }
 
-    this.enqueueWriteForDependentValue(this.fanService, Characteristic.RotationSpeed, function(currentSpeed){
-      const level = this.fanSpeedToLevel(currentSpeed)
-      this.log.debug('Using current level: ' + level)
-
-      return new FanUpdateLevelRequest(level)
-    }.bind(this), callback)
-  }
-
-  getFanRotationSpeed(callback) {
-    this.getNextValueForFanState(FanResponse.Keys.FAN_SPEED, callback)
-  }
-
-  setFanRotationSpeed(newValue, callback) {
+    const currentlyOn = this.scratchFanOn
     const level = this.fanSpeedToLevel(newValue)
     this.log.info('Fan speed: ' + level)
+
+    if (!currentlyOn) { return callback() }
 
     const command = new FanUpdateLevelRequest(level)
     this.sendCommand(command, callback)
   }
 
-  getLightOn(callback) {
-    this.getNextValueForFanState(FanResponse.Keys.LIGHT_ON, callback)
-  }
-
   setLightOn(newValue, callback) {
+    this.scratchLightOn = newValue
+    if (this.scratchLightBrightness === undefined) {
+      this.once('updateState', function(){
+        this.setLightOn(newValue, callback)
+      }.bind(this))
+      return
+    }
+
+    const currentBrightness = this.scratchLightBrightness
     this.log.info('Light on: ' + newValue)
+    this.log.debug('Using current brightness: ' + currentBrightness)
 
-    this.enqueueWriteForDependentValue(this.lightService, Characteristic.Brightness, function(currentBrightness) {
-      this.log.debug('Using current brightness: ' + currentBrightness)
-      return new FanUpdateLightRequest(newValue, currentBrightness)
-    }.bind(this), callback)
-  }
-
-  getLightBrightness(callback) {
-    this.getNextValueForFanState(FanResponse.Keys.LIGHT_BRIGHTNESS, callback)
+    const command = new FanUpdateLightRequest(newValue, currentBrightness)
+    this.sendCommand(command, callback)
   }
 
   setLightBrightness(newValue, callback) {
-    this.log.info('Light brightness: ' + newValue)
+    this.scratchLightBrightness = newValue
+    if (this.scratchLightOn === undefined) {
+      this.once('updateState', function(){
+        this.setLightBrightness(newValue, callback)
+      }.bind(this))
+      return
+    }
 
-    this.enqueueWriteForDependentValue(this.lightService, Characteristic.On, function(currentlyOn) {
-      return new FanUpdateLightRequest(currentlyOn, newValue)
-    }, callback)
+    const currentlyOn = this.scratchLightOn
+    this.log.info('Light brightness: ' + newValue)
+    this.log.debug('For current light on-ness: ' + currentlyOn)
+
+    const command = new FanUpdateLightRequest(currentlyOn, newValue)
+    this.sendCommand(command, callback)
   }
 
   // MARK: -
@@ -494,16 +474,20 @@ class FanLightAccessory extends EventEmitter {
     const service = new Service.Fan(this.name)
 
     service.getCharacteristic(Characteristic.On)
-      .on('get', this.getFanOn.bind(this))
       .on('set', this.setFanOn.bind(this))
+      .on('change', function(context){
+        this.scratchFanOn = context.newValue
+      }.bind(this))
 
     service.getCharacteristic(Characteristic.RotationSpeed)
       .setProps({
         maxValue: 99,
         minStep: 33
       })
-      .on('get', this.getFanRotationSpeed.bind(this))
       .on('set', this.setFanRotationSpeed.bind(this))
+      .on('change', function(context){
+        this.scratchFanRotationSpeed = context.newValue
+      }.bind(this))
 
     return service
   }
@@ -514,12 +498,16 @@ class FanLightAccessory extends EventEmitter {
     const service = new Service.Lightbulb(this.name)
 
     service.getCharacteristic(Characteristic.On)
-      .on('get', this.getLightOn.bind(this))
       .on('set', this.setLightOn.bind(this))
+      .on('change', function(context){
+        this.scratchLightOn = context.newValue
+      }.bind(this))
 
     service.getCharacteristic(Characteristic.Brightness)
-      .on('get', this.getLightBrightness.bind(this))
       .on('set', this.setLightBrightness.bind(this))
+      .on('change', function(context){
+        this.scratchLightBrightness = context.newValue
+      }.bind(this))
 
     return service
   }
