@@ -341,6 +341,12 @@ class FanLightAccessory extends EventEmitter {
     if (!response) { return }
     this.log.debug('received fan state')
 
+    const rotationSpeedMinimum = Math.trunc(100 / response.fanLevelMaximum)
+    const rotationSpeedMaxValue = rotationSpeedMinimum * response.fanLevelMaximum
+    this.fanService.getCharacteristic(Characteristic.RotationSpeed).setProps({
+      maxValue: rotationSpeedMaxValue,
+      minStep: rotationSpeedMinimum
+    })
     this.fanLevelMaximum = response.fanLevelMaximum
 
     this.emit('updateState', null, response)
