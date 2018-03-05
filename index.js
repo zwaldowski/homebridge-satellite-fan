@@ -185,7 +185,7 @@ class FanLightAccessory extends EventEmitter {
   }
 
   startScanningWithTimeout() {
-    Noble.startScanning([], true)
+    Noble.startScanning(this.serviceUUID, false)
 
     setTimeout(function() {
       if (Noble.listenerCount('discover') == 0) { return }
