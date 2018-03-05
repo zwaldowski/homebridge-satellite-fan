@@ -221,7 +221,10 @@ class FanLightAccessory extends EventEmitter {
       if (!error) {
         this.log.debug('sent')
       }
-      callback(error)
+
+      if (callback) {
+        callback(error)
+      }
     }.bind(this))
   }
 
