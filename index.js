@@ -61,16 +61,12 @@ class FanGetStateRequest extends FanRequest {
 
 }
 
-Math.clamp = function(number, min, max) {
-  return Math.max(min, Math.min(number, max))
-}
-
 class FanUpdateLightRequest extends FanRequest {
 
   constructor(isOn, level) {
     super()
     this.on = isOn ? 1 : 0
-    this.level = Math.clamp(level, 0, 100)
+    this.level = level
   }
 
   writeInto(buffer) {
@@ -88,7 +84,7 @@ class FanUpdateLevelRequest extends FanRequest {
 
   constructor(level) {
     super()
-    this.level = Math.clamp(level, 0, 3)
+    this.level = level
   }
 
   writeInto(buffer) {
