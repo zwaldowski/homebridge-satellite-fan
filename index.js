@@ -1,7 +1,7 @@
 'use strict'
 
 const plugin = require('./package'),
-  Noble = require('noble'),
+  Noble = require('@abandonware/noble'),
   EventEmitter = require('events').EventEmitter
 var Homebridge, Service, Characteristic
 
